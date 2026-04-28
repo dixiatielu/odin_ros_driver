@@ -1791,11 +1791,17 @@ int main(int argc, char *argv[])
     #ifdef ROS2
         std::string package_path = get_package_source_directory();
         std::cout << "package_path: " << package_path << std::endl;
+        std::string default_config_file = package_path + "/config/control_command.yaml";
+        std::string config_file = node->declare_parameter<std::string>(
+            "config_file",
+            default_config_file
+        );
+        RCLCPP_INFO(node->get_logger(), "Using config file: %s", config_file.c_str());
     #else
     	std::string package_path = get_package_share_path("odin_ros_driver");
-    #endif
         std::string config_dir = package_path + "/config";
         std::string config_file = config_dir + "/control_command.yaml";
+    #endif
 
         // Initialize command file path to /tmp/odin_command.txt
         g_command_file_path = "/tmp/odin_command.txt";
