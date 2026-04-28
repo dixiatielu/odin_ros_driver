@@ -65,32 +65,29 @@ build_workspace() {
     
     echo -e "${YELLOW}Starting ROS2 project build...${NC}"
 
-    cd $WS_DIR
+    cd "${WORKSPACE_ROOT}" || return 1
     rm -rf build install log
     # Ensure ROS2 environment is loaded
-    if [ -f "/opt/ros/foxy/setup.bash" ]; then
-        source "/opt/ros/foxy/setup.bash"
-    elif [ -f "/opt/ros/galactic/setup.bash" ]; then
-        source "/opt/ros/galactic/setup.bash"
+    if [ -n "${ROS_DISTRO:-}" ] && [ -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]; then
+        source "/opt/ros/${ROS_DISTRO}/setup.bash"
+    elif [ -f "/opt/ros/jazzy/setup.bash" ]; then
+        source "/opt/ros/jazzy/setup.bash"
     elif [ -f "/opt/ros/humble/setup.bash" ]; then
         source "/opt/ros/humble/setup.bash"
+    elif [ -f "/opt/ros/iron/setup.bash" ]; then
+        source "/opt/ros/iron/setup.bash"
+    elif [ -f "/opt/ros/rolling/setup.bash" ]; then
+        source "/opt/ros/rolling/setup.bash"
     else
         echo -e "${RED}Could not find ROS2 setup.bash file. Please ensure ROS2 is installed.${NC}"
         return 1
     fi
     
-    # Create temporary package.xml
-    if [ -f "${PKG_DIR}/package_ros2.xml" ]; then
-        echo "Creating temporary package.xml (using package_ros2.xml)"
-        cp "${PKG_DIR}/package_ros2.xml" "${PKG_DIR}/package.xml"
-        TEMP_PACKAGE=true
-    elif [ -f "${PKG_DIR}/package.xml" ]; then
-         echo "Using existing package.xml"
-        TEMP_PACKAGE=false
-    else
+    if [ ! -f "${PKG_DIR}/package.xml" ]; then
         echo -e "${RED}Could not find package.xml in package directory${NC}"
         return 1
     fi
+    echo "Using ROS2 package.xml"
     
     # Extract package name from package.xml
     PACKAGE_NAME=$(get_package_name "${PKG_DIR}/package.xml")
@@ -100,9 +97,6 @@ build_workspace() {
     fi
     echo "  Package name: ${PACKAGE_NAME}"
     
-    # Set build system variable
-    export BUILD_SYSTEM=ROS2
-    
     # Switch to workspace root and build
     cd "${WORKSPACE_ROOT}" || return 1
     
@@ -111,7 +105,6 @@ build_workspace() {
         --packages-select "${PACKAGE_NAME}" \
         --parallel-workers $(nproc) \
         --cmake-args \
-            -DBUILD_SYSTEM=ROS2 \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     
     BUILD_RESULT=$?

@@ -1962,7 +1962,7 @@ int main(int argc, char *argv[])
                 break;
             }
             #else
-            if (!ros::ok())     // ROS1 shutdown check
+            if (!ros::ok())
             {
                 break;
             }

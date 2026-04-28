@@ -13,9 +13,6 @@ limitations under the License.
 
 #include "image_overlay_node.hpp"
 
-#ifdef ROS2
-// ==================== ROS2 Implementation ====================
-
 ImageOverlayNode::ImageOverlayNode(const rclcpp::NodeOptions& options)
     : Node("image_overlay_node", options)
 {
@@ -130,7 +127,6 @@ void ImageOverlayNode::publishOverlay()
     overlay_pub_->publish(*overlay_msg);
 }
 
-// ==================== ROS2 Main ====================
 int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
@@ -141,114 +137,3 @@ int main(int argc, char **argv)
     rclcpp::shutdown();
     return 0;
 }
-
-#else
-// ==================== ROS1 Implementation ====================
-
-ImageOverlayNode::ImageOverlayNode(ros::NodeHandle& nh, ros::NodeHandle& pnh)
-    : nh_(nh), pnh_(pnh)
-{
-    // Read from register_keys (same structure as control_command.yaml)
-    pnh_.param<std::string>("register_keys/overlay_reprojected_topic", reprojected_topic_, "/odin1/reprojected_image");
-    pnh_.param<std::string>("register_keys/overlay_camera_topic", camera_topic_, "/odin1/image/undistorted");
-    pnh_.param<std::string>("register_keys/overlay_output_topic", overlay_topic_, "/odin1/overlay_image");
-    pnh_.param<double>("register_keys/overlay_alpha", alpha_, 0.6);
-
-    ROS_INFO("Subscribing to: %s and %s", reprojected_topic_.c_str(), camera_topic_.c_str());
-    ROS_INFO("Publishing to: %s (alpha=%.2f)", overlay_topic_.c_str(), alpha_);
-
-    // Independent subscriptions - no synchronization needed
-    reproj_sub_ = nh_.subscribe(reprojected_topic_, 10, &ImageOverlayNode::reprojCallback, this);
-    camera_sub_ = nh_.subscribe(camera_topic_, 10, &ImageOverlayNode::cameraCallback, this);
-
-    overlay_pub_ = nh_.advertise<sensor_msgs::Image>(overlay_topic_, 10);
-
-    ROS_INFO("ImageOverlayNode initialized (no-sync mode)");
-}
-
-void ImageOverlayNode::reprojCallback(const sensor_msgs::ImageConstPtr& msg)
-{
-    try {
-        cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            latest_reproj_img_ = cv_ptr->image.clone();
-            latest_header_ = msg->header;
-        }
-    } catch (cv_bridge::Exception& e) {
-        ROS_ERROR("cv_bridge exception (reproj): %s", e.what());
-        return;
-    }
-    publishOverlay();
-}
-
-void ImageOverlayNode::cameraCallback(const sensor_msgs::ImageConstPtr& msg)
-{
-    try {
-        cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            latest_camera_img_ = cv_ptr->image.clone();
-        }
-    } catch (cv_bridge::Exception& e) {
-        ROS_ERROR("cv_bridge exception (camera): %s", e.what());
-        return;
-    }
-    publishOverlay();
-}
-
-void ImageOverlayNode::publishOverlay()
-{
-    cv::Mat reproj_copy, camera_copy;
-    std_msgs::Header header_copy;
-    
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (latest_reproj_img_.empty() || latest_camera_img_.empty()) {
-            return;
-        }
-        reproj_copy = latest_reproj_img_.clone();
-        camera_copy = latest_camera_img_.clone();
-        header_copy = latest_header_;
-    }
-
-    if (reproj_copy.size() != camera_copy.size()) {
-        ROS_WARN_THROTTLE(2, "Image sizes don't match: reproj(%dx%d) vs camera(%dx%d)",
-                 reproj_copy.cols, reproj_copy.rows, camera_copy.cols, camera_copy.rows);
-        return;
-    }
-
-    // Create overlay using alpha blending
-    cv::Mat overlay = camera_copy.clone();
-    
-    for (int y = 0; y < reproj_copy.rows; ++y) {
-        for (int x = 0; x < reproj_copy.cols; ++x) {
-            cv::Vec3b reproj_pixel = reproj_copy.at<cv::Vec3b>(y, x);
-            if (reproj_pixel[0] < 250 || reproj_pixel[1] < 250 || reproj_pixel[2] < 250) {
-                cv::Vec3b cam_pixel = camera_copy.at<cv::Vec3b>(y, x);
-                overlay.at<cv::Vec3b>(y, x) = cv::Vec3b(
-                    static_cast<uchar>(alpha_ * reproj_pixel[0] + (1 - alpha_) * cam_pixel[0]),
-                    static_cast<uchar>(alpha_ * reproj_pixel[1] + (1 - alpha_) * cam_pixel[1]),
-                    static_cast<uchar>(alpha_ * reproj_pixel[2] + (1 - alpha_) * cam_pixel[2])
-                );
-            }
-        }
-    }
-
-    sensor_msgs::ImagePtr overlay_msg = cv_bridge::CvImage(header_copy, "bgr8", overlay).toImageMsg();
-    overlay_pub_.publish(overlay_msg);
-}
-
-// ==================== ROS1 Main ====================
-int main(int argc, char **argv)
-{
-    ros::init(argc, argv, "image_overlay_node");
-    ros::NodeHandle nh;
-    ros::NodeHandle pnh("~");
-
-    ImageOverlayNode node(nh, pnh);
-
-    ros::spin();
-    return 0;
-}
-#endif

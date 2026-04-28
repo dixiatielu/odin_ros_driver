@@ -122,6 +122,8 @@ bool YamlParser::loadConfig() {
                         std::cerr << "Failed to parse custom parameter array " << param_name << ": " << e.what() << std::endl;
                     }
                 }
+            } else if (ignored_ros_node_keys.find(key) != ignored_ros_node_keys.end()) {
+                std::cerr << "Skipped ROS node-only key: " << key << std::endl;
             } else if (allowed_key_w_str_val.find(key) != allowed_key_w_str_val.end()) {
                 try {
                     std::string value = value_node.as<std::string>();
