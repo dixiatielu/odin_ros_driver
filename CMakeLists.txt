@@ -14,6 +14,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -63,6 +64,7 @@ endif()
 set(ROS2_DEPS
     ament_index_cpp
     rclcpp
+    rclcpp_components
     std_msgs
     sensor_msgs
     nav_msgs
@@ -105,6 +107,19 @@ add_executable(host_sdk_sample
 )
 ament_target_dependencies(host_sdk_sample ${ROS2_DEPS})
 target_link_libraries(host_sdk_sample
+    ${COMMON_LIBS}
+    ${LYD_HOST_API_LIB}
+)
+
+add_library(host_sdk_sample_core SHARED
+    src/host_sdk_sample.cpp
+    src/yaml_parser.cpp
+    src/rawCloudRender.cpp
+    src/camera_pose_visualization.cpp
+)
+target_compile_definitions(host_sdk_sample_core PRIVATE ODIN_ROS_DRIVER_DISABLE_MAIN)
+ament_target_dependencies(host_sdk_sample_core ${ROS2_DEPS})
+target_link_libraries(host_sdk_sample_core
     ${COMMON_LIBS}
     ${LYD_HOST_API_LIB}
 )
@@ -167,6 +182,22 @@ target_link_libraries(cloud_reprojection_ros2_node
     yaml-cpp
 )
 
+add_library(cloud_reprojection_ros2_node_lib SHARED src/cloud_reprojection_ros.cpp)
+target_compile_definitions(cloud_reprojection_ros2_node_lib PRIVATE ODIN_ROS_DRIVER_DISABLE_MAIN)
+ament_target_dependencies(cloud_reprojection_ros2_node_lib
+    rclcpp
+    sensor_msgs
+    nav_msgs
+    cv_bridge
+    image_transport
+    pcl_conversions
+    message_filters
+)
+target_link_libraries(cloud_reprojection_ros2_node_lib
+    cloud_reprojector_ros2
+    yaml-cpp
+)
+
 add_executable(image_overlay_node src/image_overlay_node.cpp)
 ament_target_dependencies(image_overlay_node
     rclcpp
@@ -177,11 +208,41 @@ ament_target_dependencies(image_overlay_node
 )
 target_link_libraries(image_overlay_node ${OpenCV_LIBS})
 
+add_library(image_overlay_node_lib SHARED src/image_overlay_node.cpp)
+target_compile_definitions(image_overlay_node_lib PRIVATE ODIN_ROS_DRIVER_DISABLE_MAIN)
+ament_target_dependencies(image_overlay_node_lib
+    rclcpp
+    sensor_msgs
+    cv_bridge
+    image_transport
+    message_filters
+)
+target_link_libraries(image_overlay_node_lib ${OpenCV_LIBS})
+
+add_library(odin_ros_driver_components SHARED src/components.cpp)
+ament_target_dependencies(odin_ros_driver_components ${ROS2_DEPS})
+target_link_libraries(odin_ros_driver_components
+    host_sdk_sample_core
+    depth_image_ros2_node_lib
+    cloud_reprojection_ros2_node_lib
+    image_overlay_node_lib
+)
+rclcpp_components_register_nodes(odin_ros_driver_components
+    "odin_ros_driver::HostSdkSampleComponent"
+    "odin_ros_driver::DepthImageRos2Component"
+    "CloudReprojectionRosNode"
+    "ImageOverlayNode"
+)
+
 install(TARGETS
     host_sdk_sample
+    host_sdk_sample_core
     pcd2depth_ros2_node
     cloud_reprojection_ros2_node
+    cloud_reprojection_ros2_node_lib
     image_overlay_node
+    image_overlay_node_lib
+    odin_ros_driver_components
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION lib/${PROJECT_NAME}

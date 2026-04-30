@@ -237,6 +237,7 @@ void CloudReprojectionRosNode::syncCallback(
     reprojected_image_pub_.publish(*img_msg);
 }
 
+#ifndef ODIN_ROS_DRIVER_DISABLE_MAIN
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
@@ -304,3 +305,4 @@ int main(int argc, char** argv)
 
     return 0;
 }
+#endif
