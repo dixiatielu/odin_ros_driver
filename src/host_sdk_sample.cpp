@@ -1930,13 +1930,24 @@ static void lidar_device_callback(const lidar_device_info_t* device, bool attach
     }
 }
 
+#ifdef ROS2
+int run_host_sdk_sample_node(
+    const rclcpp::Node::SharedPtr& node,
+    bool spin_node,
+    bool shutdown_context,
+    bool install_signal_handlers)
+{
+    g_shutdown_requested = false;
+    g_ros_object = std::make_shared<MultiSensorPublisher>(node);
+#else
 int main(int argc, char *argv[])
 {
-#ifdef ROS2
-    rclcpp::init(argc, argv);
-    auto node = std::make_shared<rclcpp::Node>("lydros_node");
-    g_ros_object = std::make_shared<MultiSensorPublisher>(node);
+    ros::init(argc, argv, "lydros_node");
+    ros::NodeHandle nh;
+    g_ros_object = new MultiSensorPublisher(nh);
+#endif
 
+#ifdef ROS2
     // -----------------------------------------------------------------
     // AE/AWB debug services (ROS2). Allow a side terminal to tune the
     // camera AE/AWB at runtime via `ros2 service call`, while the
@@ -2052,10 +2063,6 @@ int main(int argc, char *argv[])
         "AE/AWB debug services ready: "
         "/odin1/get_ae /odin1/get_awb /odin1/set_ae /odin1/set_awb");
 #else
-    ros::init(argc, argv, "lydros_node");
-    ros::NodeHandle nh;
-    g_ros_object = new MultiSensorPublisher(nh);
-
     // -----------------------------------------------------------------
     // AE/AWB debug services (ROS1). Same service names, srv schema,
     // parameter ranges and rc convention as the ROS2 branch above
@@ -2165,18 +2172,31 @@ int main(int argc, char *argv[])
 #endif
 
     // Register signal handlers for Ctrl+C
+#ifdef ROS2
+    if (install_signal_handlers) {
+        signal(SIGINT, signal_handler);
+        signal(SIGTERM, signal_handler);
+    }
+#else
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+#endif
 
     try {
     #ifdef ROS2
         std::string package_path = get_package_source_directory();
         std::cout << "package_path: " << package_path << std::endl;
+        std::string default_config_file = package_path + "/config/control_command.yaml";
+        std::string config_file = node->declare_parameter<std::string>(
+            "config_file",
+            default_config_file
+        );
+        RCLCPP_INFO(node->get_logger(), "Using config file: %s", config_file.c_str());
     #else
     	std::string package_path = get_package_share_path("odin_ros_driver");
-    #endif
         std::string config_dir = package_path + "/config";
         std::string config_file = config_dir + "/control_command.yaml";
+    #endif
 
         // Initialize command file path to /tmp/odin_command.txt
         g_command_file_path = "/tmp/odin_command.txt";
@@ -2339,7 +2359,7 @@ int main(int argc, char *argv[])
         bool usbVersionChecked = false; 
         while (!deviceConnected) {
             #ifdef ROS2
-            if (!rclcpp::ok()) {
+            if (!rclcpp::ok() || g_shutdown_requested.load()) {
                 break;
             }
             #else
@@ -2389,8 +2409,9 @@ int main(int argc, char *argv[])
         if (g_ros_object) {
             g_ros_object.reset();   // destroys all publishers/subscribers
         }
-        node.reset();              // destroy the node first
-        rclcpp::shutdown();
+        if (shutdown_context) {
+            rclcpp::shutdown();
+        }
         #else
         if (g_ros_object) {
             delete g_ros_object;
@@ -2406,8 +2427,10 @@ int main(int argc, char *argv[])
         // Create 10Hz Rate object
         rclcpp::Rate rate(10);
         
-        while (rclcpp::ok()) {
-            rclcpp::spin_some(node);
+        while (rclcpp::ok() && !g_shutdown_requested.load()) {
+            if (spin_node) {
+                rclcpp::spin_some(node);
+            }
             // Check device disconnection status
             if (deviceDisconnected.load()) {
                 if (!disconnect_msg_printed) {
@@ -2435,7 +2458,9 @@ int main(int argc, char *argv[])
             // Wait 0.1 seconds
             rate.sleep();
         }
-        rclcpp::shutdown();
+        if (shutdown_context) {
+            rclcpp::shutdown();
+        }
     #else
         // Create 10Hz Rate object
         ros::Rate rate(10);
@@ -2529,3 +2554,19 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
+#ifdef ROS2
+void request_host_sdk_sample_stop()
+{
+    g_shutdown_requested = true;
+}
+
+#ifndef ODIN_ROS_DRIVER_DISABLE_MAIN
+int main(int argc, char *argv[])
+{
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<rclcpp::Node>("lydros_node");
+    return run_host_sdk_sample_node(node, true, true, true);
+}
+#endif
+#endif
