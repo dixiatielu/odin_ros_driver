@@ -45,7 +45,7 @@ ImageOverlayNode::ImageOverlayNode(const rclcpp::NodeOptions& options)
     RCLCPP_INFO(this->get_logger(), "ImageOverlayNode initialized (no-sync mode)");
 }
 
-void ImageOverlayNode::reprojCallback(const Image::ConstSharedPtr& msg)
+void ImageOverlayNode::reprojCallback(Image::ConstSharedPtr msg)
 {
     try {
         cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");
@@ -61,7 +61,7 @@ void ImageOverlayNode::reprojCallback(const Image::ConstSharedPtr& msg)
     publishOverlay();
 }
 
-void ImageOverlayNode::cameraCallback(const Image::ConstSharedPtr& msg)
+void ImageOverlayNode::cameraCallback(Image::ConstSharedPtr msg)
 {
     try {
         cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, "bgr8");

@@ -13,7 +13,11 @@ limitations under the License.
 
 #pragma once
 
-#include <cv_bridge/cv_bridge.hpp>
+#if __has_include(<cv_bridge/cv_bridge.hpp>)
+#include <cv_bridge/cv_bridge.hpp>  // ROS 2 Iron/Jazzy+
+#else
+#include <cv_bridge/cv_bridge.h>  // ROS 2 Humble
+#endif
 #include <opencv2/opencv.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -45,7 +49,7 @@ private:
     std_msgs::msg::Header latest_header_;
     std::mutex mutex_;
 
-    void reprojCallback(const Image::ConstSharedPtr& msg);
-    void cameraCallback(const Image::ConstSharedPtr& msg);
+    void reprojCallback(Image::ConstSharedPtr msg);
+    void cameraCallback(Image::ConstSharedPtr msg);
     void publishOverlay();
 };

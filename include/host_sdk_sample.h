@@ -26,7 +26,11 @@ limitations under the License.
 #include <iomanip>
 #include <cstring>
 #include <opencv2/opencv.hpp>
-#include <cv_bridge/cv_bridge.hpp>
+#if __has_include(<cv_bridge/cv_bridge.hpp>)
+#include <cv_bridge/cv_bridge.hpp>  // ROS 2 Iron/Jazzy+
+#else
+#include <cv_bridge/cv_bridge.h>  // ROS 2 Humble
+#endif
 #include <thread>
 #include <Eigen/Dense>
 #include <atomic>

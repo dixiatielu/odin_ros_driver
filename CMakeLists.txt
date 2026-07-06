@@ -260,6 +260,13 @@ install(DIRECTORY config/
     DESTINATION share/${PROJECT_NAME}/config
 )
 
+if(BUILD_TESTING)
+    find_package(ament_cmake_pytest REQUIRED)
+    ament_add_pytest_test(test_upstream_0103_merge
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_upstream_0103_merge.py
+    )
+endif()
+
 ament_export_dependencies(${ROS2_DEPS})
 ament_package()
 
