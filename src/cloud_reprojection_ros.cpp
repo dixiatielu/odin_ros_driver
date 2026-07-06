@@ -246,6 +246,7 @@ void CloudReprojectionRosNode::syncCallback(
 }
 
 // ==================== ROS2 Main ====================
+#ifndef ODIN_ROS_DRIVER_DISABLE_MAIN
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
@@ -313,6 +314,7 @@ int main(int argc, char** argv)
 
     return 0;
 }
+#endif
 
 #else
 // ==================== ROS1 Implementation ====================
