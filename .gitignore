@@ -1,4 +1,5 @@
 recorddata/
+__pycache__/
 /config/calib.yaml
 /config/Conn*
 /log

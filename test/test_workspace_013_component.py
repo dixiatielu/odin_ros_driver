@@ -14,12 +14,12 @@ def section(source: str, start: str, end: str) -> str:
     return source[start_index:end_index]
 
 
-def test_driver_keeps_upstream_012_firmware_gate():
+def test_driver_keeps_upstream_013_firmware_gate():
     source = read("src/host_sdk_sample.cpp")
 
-    assert '#define ros_driver_version "0.11.0"' in source
+    assert '#define ros_driver_version "0.13.0"' in source
     assert "#define required_firmware_version_major 0" in source
-    assert "#define required_firmware_version_minor 12" in source
+    assert "#define required_firmware_version_minor 13" in source
     assert "#define required_firmware_version_patch 0" in source
 
 
@@ -42,7 +42,7 @@ def test_humble_and_jazzy_cv_bridge_headers_are_supported():
         assert "<cv_bridge/cv_bridge.h>" in header
 
 
-def test_upstream_runtime_fixes_remain_after_012_rebase():
+def test_upstream_runtime_fixes_remain_after_013_rebase():
     source = read("src/host_sdk_sample.cpp")
 
     signal_handler = section(
