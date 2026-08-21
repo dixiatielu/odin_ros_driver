@@ -274,8 +274,8 @@ install(DIRECTORY config/
 
 if(BUILD_TESTING)
     find_package(ament_cmake_pytest REQUIRED)
-    ament_add_pytest_test(test_workspace_012_component
-        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_workspace_012_component.py
+    ament_add_pytest_test(test_workspace_013_component
+        ${CMAKE_CURRENT_SOURCE_DIR}/test/test_workspace_013_component.py
     )
 endif()
 
